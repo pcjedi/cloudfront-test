@@ -35,6 +35,9 @@ jobs:
       - run: jq -e '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json
       - run: jq -e '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"
         id: cf_outputs
+      - run: echo "$steps"
+        env:
+          steps: ${{ toJson(steps) }}
       - run: echo "WebsiteBucketName=${{ steps.cf_outputs.outputs.WebsiteBucketName }}"
       # ── SAM build + deploy ──────────────────────────────────────────────
       - run: >
