@@ -65,3 +65,13 @@ jobs:
           aws cloudfront create-invalidation
           --distribution-id "${{ steps.cloudfront_distribution_id.outputs.value }}"
           --paths "/*"
+      - id: cloudfront_url
+        run: >
+          echo "value=$(aws cloudformation describe-stacks
+          --stack-name "$STACK_NAME"
+          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontURL'].OutputValue"
+          --output text)" >> "$GITHUB_OUTPUT"
+      - if: github.event_name == 'pull_request'
+        run: gh pr comment ${{ github.event.number }} --edit-last --create-if-none --body "${{ steps.cloudfront_url.outputs.value }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
