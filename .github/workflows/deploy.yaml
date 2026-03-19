@@ -30,10 +30,8 @@ jobs:
       - uses: actions/checkout@v6.0.2
         with:
           persist-credentials: false
-      - id: stack_describe
-        run: >
-          aws cloudformation describe-stacks
-          --stack-name "$STACK_NAME"
+      - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
+      - run: jq -e 'Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue' stack.json
       # ── SAM build + deploy ──────────────────────────────────────────────
       - run: >
           aws s3api create-bucket 

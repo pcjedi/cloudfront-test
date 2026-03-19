@@ -37,8 +37,6 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      VersioningConfiguration:
-        Status: Enabled
 
   # ── Bucket Policy – allows CloudFront OAC ────────────────────────────────────
   WebsiteBucketPolicy:
