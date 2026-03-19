@@ -21,7 +21,7 @@ jobs:
       SAM_CLI_TELEMETRY: 0
       STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
       S3_BUCKET: ${{ format('samclisourcebucket-github.com-{0}-{1}-{2}', github.repository.owner.name, github.repository.name, matrix.env) }}
-    concurrency: ${{ github.event_name == 'pull_request' && github.event.number }}
+    concurrency: ${{ github.event_name == 'push' && matrix.env || github.event.number }}
     environment: ${{ matrix.env }}
     steps:
       - run: echo "$github"
