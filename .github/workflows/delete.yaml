@@ -17,6 +17,15 @@ jobs:
         with:
           aws-region: eu-central-1
           role-to-assume: arn:aws:iam::412654396766:role/GitHubActions-Deploy
+      - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
+      - run: jq -r '.' stack.json
+      - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"
+        id: cf_outputs
+      - run: echo "$steps"
+        env:
+          steps: ${{ toJson(steps) }}
+      - run: aws s3 rm "s3://${{ steps.cf_outputs.outputs.WebsiteBucketName }}/" --recursive
+      - run: aws s3api delete-bucket --bucket "${{ steps.cf_outputs.outputs.WebsiteBucketName }}"
       - run: >
           sam delete
           --stack-name ${{ github.event.repository.name }}-pr-${{ github.event.number }}
