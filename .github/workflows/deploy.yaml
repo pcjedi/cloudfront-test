@@ -35,6 +35,7 @@ jobs:
           aws s3api create-bucket 
           --bucket "$S3_BUCKET"
           --create-bucket-configuration LocationConstraint="$AWS_REGION"
+          || echo "BucketAlreadyOwnedByYou is fine"
       - run: >
           sam build
           --parallel
