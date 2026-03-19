@@ -31,13 +31,12 @@ jobs:
         with:
           persist-credentials: false
       - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
-      - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json
+      - run: jq -r '.' stack.json
       - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"
         id: cf_outputs
       - run: echo "$steps"
         env:
           steps: ${{ toJson(steps) }}
-      - run: echo "WebsiteBucketName=${{ steps.cf_outputs.outputs.WebsiteBucketName }}"
       # ── SAM build + deploy ──────────────────────────────────────────────
       - run: >
           aws s3api create-bucket 
@@ -55,33 +54,15 @@ jobs:
           --s3-bucket "$S3_BUCKET"
           --s3-prefix "$STACK_NAME/$GITHUB_SHA"
           --capabilities CAPABILITY_IAM
-      - id: website_bucket_name
-        run: >
-          echo "value=$(aws cloudformation describe-stacks
-          --stack-name "$STACK_NAME"
-          --query "Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue"
-          --output text)" >> "$GITHUB_OUTPUT"
-      - id: cloudfront_distribution_id
-        run: >
-          echo "value=$(aws cloudformation describe-stacks
-          --stack-name "$STACK_NAME"
-          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue"
-          --output text)" >> "$GITHUB_OUTPUT"
-      - run: aws s3 sync web/ "s3://$(jq -e '.Stacks[0].Outputs[] | select(.OutputKey == "WebsiteBucketName") | .OutputValue' stack.json)/"
+      - run: aws s3 sync web/ "s3://${{ steps.cf_outputs.outputs.WebsiteBucketName }}/"
       - run: >
           aws cloudfront create-invalidation
-          --distribution-id "${{ steps.cloudfront_distribution_id.outputs.value }}"
+          --distribution-id "${{ steps.cf_outputs.outputs.CloudFrontDistributionId }}"
           --paths "/*"
-      - id: cloudfront_url
-        run: >
-          echo "value=$(aws cloudformation describe-stacks
-          --stack-name "$STACK_NAME"
-          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontURL'].OutputValue"
-          --output text)" >> "$GITHUB_OUTPUT"
       - if: github.event_name == 'pull_request'
-        run: gh pr comment ${{ github.event.number }} --edit-last --create-if-none --body "${{ steps.cloudfront_url.outputs.value }}"
+        run: gh pr comment ${{ github.event.number }} --edit-last --create-if-none --body "${{ steps.cf_outputs.outputs.CloudFrontURL }}"
         env:
           GH_TOKEN: ${{ github.token }}
 ################################################
-      - run: aws s3 rm "s3://${{ steps.website_bucket_name.outputs.value }}/" --recursive
-      - run: aws s3api delete-bucket --bucket "${{ steps.website_bucket_name.outputs.value }}"
+      - run: aws s3 rm "s3://${{ steps.cf_outputs.outputs.WebsiteBucketName }}/" --recursive
+      - run: aws s3api delete-bucket --bucket "${{ steps.cf_outputs.outputs.WebsiteBucketName }}"
