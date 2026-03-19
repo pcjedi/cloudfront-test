@@ -24,9 +24,6 @@ jobs:
     concurrency: ${{ github.event_name == 'push' && matrix.env || github.event.number }}
     environment: ${{ matrix.env }}
     steps:
-      - run: echo "$github"
-        env:
-          github: ${{ toJson(github) }}
       - uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsDeployRole
@@ -55,15 +52,18 @@ jobs:
       - run: jq -r '.' stack.json
       - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"
         id: cf_outputs
-      - run: echo "$steps"
+      - run: aws s3 sync web/ "s3://$BUCKET_NAME/"
         env:
-          steps: ${{ toJson(steps) }}
-      - run: aws s3 sync web/ "s3://${{ steps.cf_outputs.outputs.WebsiteBucketName }}/"
+          BUCKET_NAME: ${{ steps.cf_outputs.outputs.WebsiteBucketName }}
       - run: >
           aws cloudfront create-invalidation
-          --distribution-id "${{ steps.cf_outputs.outputs.CloudFrontDistributionId }}"
+          --distribution-id "$DISTRIBUTION_ID"
           --paths "/*"
+        env:
+          DISTRIBUTION_ID: ${{ steps.cf_outputs.outputs.CloudFrontDistributionId }}
       - if: github.event_name == 'pull_request'
-        run: gh pr comment ${{ github.event.number }} --edit-last --create-if-none --body "${{ steps.cf_outputs.outputs.CloudFrontURL }}"
+        run: gh pr comment "$PR_NUMBER" --edit-last --create-if-none --body "$CLOUDFRONT_URL"
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.number }}
+          CLOUDFRONT_URL: ${{ steps.cf_outputs.outputs.CloudFrontURL }}

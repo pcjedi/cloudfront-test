@@ -4,8 +4,10 @@ on:
     types:
       - closed
 
+permissions: {}
+
 jobs:
-  deploy:
+  delete:
     runs-on: ubuntu-24.04
     permissions:
       id-token: write
@@ -14,7 +16,7 @@ jobs:
       SAM_CLI_TELEMETRY: 0
       STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
     steps:
-      - uses: aws-actions/configure-aws-credentials@v5.1.1
+      - uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsDeployRole
@@ -22,11 +24,9 @@ jobs:
       - run: jq -r '.' stack.json
       - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"
         id: cf_outputs
-      - run: echo "$steps"
+      - run: aws s3 rm "s3://$BUCKET_NAME/" --recursive
         env:
-          steps: ${{ toJson(steps) }}
-      - run: aws s3 rm "s3://${{ steps.cf_outputs.outputs.WebsiteBucketName }}/" --recursive
-      - run: aws s3api delete-bucket --bucket "${{ steps.cf_outputs.outputs.WebsiteBucketName }}"
+          BUCKET_NAME: ${{ steps.cf_outputs.outputs.WebsiteBucketName }}
       - run: >
           sam delete
           --stack-name "$STACK_NAME"
