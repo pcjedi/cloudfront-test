@@ -17,7 +17,7 @@ jobs:
       AWS_REGION: eu-central-1
       SAM_CLI_TELEMETRY: 0
       STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
-      S3_BUCKET: ${{ format('samclisourcebucket-github.com/{0}/{1}-{2}', github.repository.owner, github.event.repository.name, github.event_name) }}
+      S3_BUCKET: ${{ format('samclisourcebucket-github.com-{0}-{1}-{2}', github.repository.repository_owner, github.event.repository.name, github.event_name) }}
     concurrency: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
     steps:
       - run: echo "$github"
