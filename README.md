@@ -41,8 +41,8 @@ Push to `main` deploys to both `staging` and `production` environments. PRs depl
 
 Triggered when a **pull request is closed**:
 
-1. Empties and deletes the S3 bucket.
-2. Deletes the SAM stack.
+1. Empties the S3 bucket.
+2. Deletes the SAM stack (which removes the bucket).
 
 ## Prerequisites
 
