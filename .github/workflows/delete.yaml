@@ -16,7 +16,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v5.1.1
         with:
           aws-region: eu-central-1
-          role-to-assume: arn:aws:iam::412654396766:role/GitHubActions-Deploy
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsDeployRole
       - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
       - run: jq -r '.' stack.json
       - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"

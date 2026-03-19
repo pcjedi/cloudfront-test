@@ -8,6 +8,9 @@ permissions: {}
 
 jobs:
   deploy:
+    strategy:
+      matrix:
+        env: ${{ fromJson(github.event_name == 'push' && '["staging","production"]' || '["staging"]') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -19,13 +22,14 @@ jobs:
       STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
       S3_BUCKET: ${{ format('samclisourcebucket-github.com-{0}-{1}', github.repository.repository_owner, github.event.repository.name) }}
     concurrency: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
+    environment: ${{ matrix.env }}
     steps:
       - run: echo "$github"
         env:
           github: ${{ toJson(github) }}
       - uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
-          role-to-assume: arn:aws:iam::${{ github.event_name == 'push' && 926193200394 || 926193200394 }}:role/GitHubActionsDeployRole
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsDeployRole
           aws-region: eu-central-1
       - uses: actions/checkout@v6.0.2
         with:
