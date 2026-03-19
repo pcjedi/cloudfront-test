@@ -35,5 +35,6 @@ jobs:
           --stack-name "$STACK_NAME"
           --no-confirm-changeset
           --no-fail-on-empty-changeset
+          --resolve-s3
           --s3-prefix "$STACK_NAME/$GITHUB_SHA"
           --capabilities CAPABILITY_IAM
