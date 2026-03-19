@@ -1,0 +1,39 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      SAM_CLI_TELEMETRY: 0
+      STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
+      S3_BUCKET: ${{ github.event_name == 'push' && 'samclisourcebucket-bff4078d-d191-4483-b3e8-64d6620e37cb' || 'samclisourcebucket-f56a6f5c-cb06-4747-ae45-b831ead8f6f4' }}
+    concurrency: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          role-to-assume: arn:aws:iam::${{ github.event_name == 'push' && 926193200394 || 926193200394 }}:role/GitHubActionsDeployRole
+          aws-region: eu-central-1
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      # ── SAM build + deploy ──────────────────────────────────────────────
+      - run: >
+          sam build
+          --parallel
+      - run: >
+          sam deploy
+          --stack-name "$STACK_NAME"
+          --no-confirm-changeset
+          --no-fail-on-empty-changeset
+          --s3-prefix "$STACK_NAME/$GITHUB_SHA"
+          --capabilities CAPABILITY_IAM
