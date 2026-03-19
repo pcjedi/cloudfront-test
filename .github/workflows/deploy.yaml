@@ -1,0 +1,65 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      AWS_REGION: eu-central-1
+      SAM_CLI_TELEMETRY: 0
+      STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
+      S3_BUCKET: ${{ format('samclisourcebucket-github.com-{0}-{1}', github.repository.repository_owner, github.event.repository.name) }}
+    concurrency: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
+    steps:
+      - run: echo "$github"
+        env:
+          github: ${{ toJson(github) }}
+      - uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          role-to-assume: arn:aws:iam::${{ github.event_name == 'push' && 926193200394 || 926193200394 }}:role/GitHubActionsDeployRole
+          aws-region: eu-central-1
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      # ── SAM build + deploy ──────────────────────────────────────────────
+      - run: >
+          aws s3api create-bucket 
+          --bucket "$S3_BUCKET"
+          --create-bucket-configuration LocationConstraint="$AWS_REGION"
+          || echo "BucketAlreadyOwnedByYou is fine"
+      - run: >
+          sam build
+          --parallel
+      - run: >
+          sam deploy
+          --stack-name "$STACK_NAME"
+          --no-confirm-changeset
+          --no-fail-on-empty-changeset
+          --s3-bucket "$S3_BUCKET"
+          --s3-prefix "$STACK_NAME/$GITHUB_SHA"
+          --capabilities CAPABILITY_IAM
+      - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
+      - run: jq -r '.' stack.json
+      - run: jq -r '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json >> "$GITHUB_OUTPUT"
+        id: cf_outputs
+      - run: echo "$steps"
+        env:
+          steps: ${{ toJson(steps) }}
+      - run: aws s3 sync web/ "s3://${{ steps.cf_outputs.outputs.WebsiteBucketName }}/"
+      - run: >
+          aws cloudfront create-invalidation
+          --distribution-id "${{ steps.cf_outputs.outputs.CloudFrontDistributionId }}"
+          --paths "/*"
+      - if: github.event_name == 'pull_request'
+        run: gh pr comment ${{ github.event.number }} --edit-last --create-if-none --body "${{ steps.cf_outputs.outputs.CloudFrontURL }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
