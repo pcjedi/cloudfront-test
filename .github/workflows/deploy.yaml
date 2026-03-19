@@ -14,11 +14,15 @@ jobs:
       id-token: write
       pull-requests: write
     env:
+      AWS_REGION: eu-central-1
       SAM_CLI_TELEMETRY: 0
       STACK_NAME: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
-      S3_BUCKET: ${{ github.event_name == 'push' && 'samclisourcebucket-bff4078d-d191-4483-b3e8-64d6620e37cb' || 'samclisourcebucket-f56a6f5c-cb06-4747-ae45-b831ead8f6f4' }}
+      S3_BUCKET: ${{ format('samclisourcebucket-github.com/{0}/{1}-{2}', github.repository.owner, github.event.repository.name, github.event_name) }}
     concurrency: ${{ format('{0}-{1}', github.event.repository.name, github.event_name == 'push' && github.ref_name || format('pr-{0}', github.event.number)) }}
     steps:
+      - run: echo "$github"
+        env:
+          github: ${{ toJson(github) }}
       - uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           role-to-assume: arn:aws:iam::${{ github.event_name == 'push' && 926193200394 || 926193200394 }}:role/GitHubActionsDeployRole
@@ -28,6 +32,9 @@ jobs:
           persist-credentials: false
       # ── SAM build + deploy ──────────────────────────────────────────────
       - run: >
+          aws s3api create-bucket 
+          --bucket "$S3_BUCKET"
+      - run: >
           sam build
           --parallel
       - run: >
@@ -35,6 +42,24 @@ jobs:
           --stack-name "$STACK_NAME"
           --no-confirm-changeset
           --no-fail-on-empty-changeset
-          --resolve-s3
+          --s3-bucket "$S3_BUCKET"
           --s3-prefix "$STACK_NAME/$GITHUB_SHA"
           --capabilities CAPABILITY_IAM
+
+      - id: website_bucket_name
+        run: >
+          echo "value=$(aws cloudformation describe-stacks
+          --stack-name "$STACK_NAME"
+          --query "Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue"
+          --output text)" >> "$GITHUB_OUTPUT"
+      - id: cloudfront_distribution_id
+        run: >
+          echo "value=$(aws cloudformation describe-stacks
+          --stack-name "$STACK_NAME"
+          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue"
+          --output text)" >> "$GITHUB_OUTPUT"
+      - run: aws s3 sync web/ "s3://${{ steps.website_bucket_name.outputs.value }}/"
+      - run: >
+          aws cloudfront create-invalidation
+          --distribution-id "${{ steps.cloudfront_distribution_id.outputs.value }}"
+          --paths "/*"
