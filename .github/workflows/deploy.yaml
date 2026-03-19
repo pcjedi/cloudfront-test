@@ -31,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
       - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
-      - run: jq -e 'Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue' stack.json
+      - run: jq -e '.Stacks[0].Outputs[] | select(.OutputKey == "WebsiteBucketName") | .OutputValue' stack.json
       # ── SAM build + deploy ──────────────────────────────────────────────
       - run: >
           aws s3api create-bucket 
