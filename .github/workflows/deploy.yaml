@@ -31,6 +31,8 @@ jobs:
         with:
           persist-credentials: false
       - run: aws cloudformation describe-stacks --stack-name "$STACK_NAME" > stack.json
+      - run: jq -e '.' stack.json
+      - run: jq -e '.Stacks[0].Outputs[] | "\(.OutputKey)=\(.OutputValue)"' stack.json
       - run: jq -e '.Stacks[0].Outputs[] | select(.OutputKey == "WebsiteBucketName") | .OutputValue' stack.json
       # ── SAM build + deploy ──────────────────────────────────────────────
       - run: >
@@ -61,7 +63,7 @@ jobs:
           --stack-name "$STACK_NAME"
           --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue"
           --output text)" >> "$GITHUB_OUTPUT"
-      - run: aws s3 sync web/ "s3://${{ steps.website_bucket_name.outputs.value }}/"
+      - run: aws s3 sync web/ "s3://$(jq -e '.Stacks[0].Outputs[] | select(.OutputKey == "WebsiteBucketName") | .OutputValue' stack.json)/"
       - run: >
           aws cloudfront create-invalidation
           --distribution-id "${{ steps.cloudfront_distribution_id.outputs.value }}"
