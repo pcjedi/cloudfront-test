@@ -1,10 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  Deploy a static HTML page to S3 and serve it globally via CloudFront.
-  The S3 bucket is kept private; CloudFront reads from it using Origin Access
-  Control (OAC). A Lambda-backed custom resource uploads index.html on every
-  stack create/update and removes it on delete.
 
 # ─────────────────────────────────────────────
 # Parameters
